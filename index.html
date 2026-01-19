@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema PDV - Restaurante & Lanchonete</title>
+    <style>
+        :root {
+            --primaria: #27ae60;
+            --secundaria: #2c3e50;
+            --alerta: #e74c3c;
+            --fundo: #f1f2f6;
+            --texto: #2d3436;
+        }
+
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--fundo); color: var(--texto); margin: 0; padding: 10px; }
+        .container { max-width: 1300px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+
+        header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--fundo); padding-bottom: 15px; margin-bottom: 20px; }
+        .brand h1 { margin: 0; color: var(--secundaria); font-size: 24px; }
+        #relogio { font-weight: bold; color: #666; }
+
+        .btn-gerente { background: var(--secundaria); color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+
+        .main-layout { display: grid; grid-template-columns: 1fr 420px; gap: 20px; }
+
+        /* Grid de Produtos */
+        .painel-produtos h2 { border-left: 5px solid var(--primaria); padding-left: 10px; }
+        .grid-botoes { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+        .grid-botoes button { 
+            height: 90px; border: 1px solid #ddd; border-radius: 8px; background: #fff; 
+            font-weight: bold; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; 
+            align-items: center; justify-content: center; gap: 5px;
+        }
+        .grid-botoes button:hover { border-color: var(--primaria); background: #f0fff4; transform: translateY(-2px); }
+        .btn-kg { background: #e8f5e9 !important; border: 2px solid var(--primaria) !important; color: #2e7d32; }
+
+        /* Checkout */
+        .painel-checkout { background: #f8f9fa; padding: 20px; border-radius: 12px; border: 1px solid #dee2e6; }
+        .carrinho-scroll { height: 350px; overflow-y: auto; background: white; border: 1px solid #ddd; border-radius: 6px; padding: 10px; margin-bottom: 15px; }
+        #lista-itens { list-style: none; padding: 0; margin: 0; }
+        #lista-itens li { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px dotted #ccc; }
+        .btn-del { color: var(--alerta); background: none; border: none; cursor: pointer; font-size: 18px; }
+
+        .linha-total { display: flex; justify-content: space-between; font-size: 32px; font-weight: 900; color: var(--alerta); margin: 15px 0; }
+
+        .campo-pagamento { background: white; padding: 15px; border-radius: 8px; border: 1px solid #ddd; }
+        select, input { width: 100%; padding: 12px; margin-top: 5px; border-radius: 5px; border: 1px solid #ccc; font-size: 16px; box-sizing: border-box; }
+        .hidden { display: none; }
+        .txt-troco { margin-top: 10px; font-weight: bold; color: #0984e3; font-size: 18px; }
+
+        .btn-confirmar { width: 100%; background: var(--primaria); color: white; border: none; padding: 20px; border-radius: 8px; font-size: 20px; font-weight: bold; cursor: pointer; margin-top: 15px; }
+        .btn-cancelar { width: 100%; background: #b2bec3; color: white; border: none; padding: 10px; border-radius: 8px; cursor: pointer; margin-top: 10px; }
+
+        /* Modais */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 1000; overflow-y: auto; }
+        .modal-content { background: white; margin: 5vh auto; padding: 25px; border-radius: 12px; width: 90%; max-width: 800px; }
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #eee; }
+        .tab-btn { padding: 10px 20px; cursor: pointer; border: none; background: none; font-weight: bold; }
+        .tab-btn.active { border-bottom: 3px solid var(--primaria); color: var(--primaria); }
+        
+        .section-gerente { display: none; }
+        .section-gerente.active { display: block; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; }
+        
+        /* Impressão */
+        #cupom-fiscal { display: none; }
+        @media print {
+            body * { visibility: hidden; }
+            #cupom-fiscal, #cupom-fiscal * { visibility: visible; display: block; }
+            #cupom-fiscal { position: absolute; left: 0; top: 0; width: 250px; font-family: monospace; }
+        }
+
+        @media (max-width: 900px) { .main-layout { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <div class="brand">
+            <h1>Restaurante & Lanchonete</h1>
+            <p id="relogio">00/00/0000 00:00:00</p>
+        </div>
+        <button class="btn-gerente" onclick="abrirGerente()">🔑 Gerenciamento</button>
+    </header>
+
+    <div class="main-layout">
+        <section class="painel-produtos">
+            <h2>Cardápio</h2>
+            <div id="grid-produtos" class="grid-botoes">
+                </div>
+        </section>
+
+        <section class="painel-checkout">
+            <h2>Pedido Atual</h2>
+            <div class="carrinho-scroll">
+                <ul id="lista-itens"></ul>
+            </div>
+            
+            <div class="linha-total">
+                <span>TOTAL:</span>
+                <span id="valor-total">R$ 0,00</span>
+            </div>
+
+            <div class="campo-pagamento">
+                <label>Pagamento:</label>
+                <select id="select-pagamento" onchange="toggleDinheiro()">
+                    <option value="Cartão">Cartão</option>
+                    <option value="PIX">PIX</option>
+                    <option value="Dinheiro">Dinheiro</option>
+                </select>
+                
+                <div id="box-dinheiro" class="hidden">
+                    <input type="number" id="input-recebido" placeholder="R$ Valor recebido" oninput="calcTroco()">
+                    <div class="txt-troco">Troco: <span id="span-troco">R$ 0,00</span></div>
+                </div>
+            </div>
+
+            <button class="btn-confirmar" onclick="finalizarVenda()">✅ Finalizar e Imprimir</button>
+            <button class="btn-cancelar" onclick="limparCarrinho()">Limpar Pedido</button>
+        </section>
+    </div>
+</div>
+
+<div id="modal-gerente" class="modal">
+    <div class="modal-content">
+        <span style="float:right; cursor:pointer; font-size:24px;" onclick="fecharGerente()">&times;</span>
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('relatorio')">Vendas</button>
+            <button class="tab-btn" onclick="switchTab('produtos')">Produtos</button>
+            <button class="tab-btn" onclick="switchTab('config')">Configurações</button>
+        </div>
+
+        <div id="relatorio" class="section-gerente active">
+            <h3>Faturamento do Período</h3>
+            <div style="background:#f1f2f6; padding:15px; border-radius:8px; margin-bottom:15px;">
+                <h2 id="total-vendas-valor" style="margin:0; color:var(--primaria);">R$ 0,00</h2>
+            </div>
+            <button onclick="exportarCSV()" style="background:#2980b9; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer;">📥 Baixar Relatório (Excel)</button>
+            <button onclick="limparVendas()" style="background:var(--alerta); color:white; border:none; padding:10px; border-radius:5px; cursor:pointer;">⚠️ Zerar Vendas</button>
+            <table id="tabela-vendas">
+                <thead><tr><th>Hora</th><th>Itens</th><th>Met.</th><th>Total</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <div id="produtos" class="section-gerente">
+            <h3>Gerenciar Cardápio</h3>
+            <div style="background:#f8f9fa; padding:15px; border-radius:8px; margin-bottom:20px;">
+                <input type="text" id="p-nome" placeholder="Nome do Produto" style="width:45%">
+                <input type="number" id="p-preco" placeholder="Preço (R$)" style="width:25%">
+                <button onclick="salvarProduto()" style="width:25%; background:var(--primaria); color:white; border:none; padding:12px; border-radius:5px; cursor:pointer;">Adicionar</button>
+            </div>
+            <table id="tabela-cad-produtos">
+                <thead><tr><th>Nome</th><th>Preço</th><th>Ação</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <div id="config" class="section-gerente">
+            <h3>Segurança</h3>
+            <div style="max-width:300px">
+                <label>Nova Senha Gerente:</label>
+                <input type="password" id="nova-senha" placeholder="Digite a nova senha">
+                <button onclick="alterarSenha()" style="margin-top:10px; background:var(--secundaria); color:white; border:none; padding:10px; width:100%; border-radius:5px; cursor:pointer;">Salvar Nova Senha</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="cupom-fiscal"></div>
+
+<script>
+// --- BANCO DE DADOS LOCAL ---
+const DB_CHAVES = {
+    PRODUTOS: 'pdv_produtos_v1',
+    VENDAS: 'pdv_vendas_v1',
+    SENHA: 'pdv_senha_v1'
+};
+
+// Cardápio Inicial Padrão
+const cardapioPadrao = [
+    {id: 1, nome: '🥗 Refeição KG', preco: 49.99, isKg: true},
+    {id: 2, nome: '🍱 PF', preco: 20.00, isKg: false},
+    {id: 3, nome: '🥡 Raso', preco: 16.00, isKg: false},
+    {id: 4, nome: '🥡 Médio', preco: 20.00, isKg: false},
+    {id: 5, nome: '🥡 Grande', preco: 26.00, isKg: false},
+    {id: 6, nome: '🍳 Pão c/ Ovo', preco: 6.00, isKg: false},
+    {id: 7, nome: '🥪 Pão P/Q', preco: 8.00, isKg: false},
+    {id: 8, nome: '🍗 Coxinha', preco: 6.00, isKg: false},
+    {id: 9, nome: '🥐 Joelho', preco: 6.00, isKg: false}
+];
+
+let produtos = JSON.parse(localStorage.getItem(DB_CHAVES.PRODUTOS)) || cardapioPadrao;
+let vendas = JSON.parse(localStorage.getItem(DB_CHAVES.VENDAS)) || [];
+let senhaGerente = localStorage.getItem(DB_CHAVES.SENHA) || "1234";
+let carrinho = [];
+
+// --- INICIALIZAÇÃO ---
+function init() {
+    renderizarProdutos();
+    setInterval(() => {
+        document.getElementById('relogio').innerText = new Date().toLocaleString('pt-BR');
+    }, 1000);
+}
+
+// --- LOGICA DE PRODUTOS ---
+function renderizarProdutos() {
+    const grid = document.getElementById('grid-produtos');
+    grid.innerHTML = '';
+    produtos.forEach(p => {
+        const btn = document.createElement('button');
+        if(p.isKg) btn.className = 'btn-kg';
+        btn.onclick = () => p.isKg ? addKg(p.preco) : addItem(p.nome, p.preco);
+        btn.innerHTML = `<span>${p.nome}</span><small>R$ ${p.preco.toFixed(2)}${p.isKg ? '/kg' : ''}</small>`;
+        grid.appendChild(btn);
+    });
+}
+
+function salvarProduto() {
+    const nome = document.getElementById('p-nome').value;
+    const preco = parseFloat(document.getElementById('p-preco').value);
+    if(!nome || isNaN(preco)) return alert("Preencha nome e preço corretamente.");
+    
+    produtos.push({ id: Date.now(), nome, preco, isKg: false });
+    localStorage.setItem(DB_CHAVES.PRODUTOS, JSON.stringify(produtos));
+    document.getElementById('p-nome').value = '';
+    document.getElementById('p-preco').value = '';
+    renderizarProdutos();
+    renderizarTabelaProdutos();
+}
+
+function excluirProduto(id) {
+    if(confirm("Deseja excluir este produto?")) {
+        produtos = produtos.filter(p => p.id !== id);
+        localStorage.setItem(DB_CHAVES.PRODUTOS, JSON.stringify(produtos));
+        renderizarProdutos();
+        renderizarTabelaProdutos();
+    }
+}
+
+// --- CARRINHO ---
+function addItem(nome, preco) {
+    carrinho.push({ id: Date.now(), nome, preco });
+    atualizarCarrinho();
+}
+
+function addKg(precoKg) {
+    const gramas = prompt("Digite o peso em GRAMAS (ex: 450):");
+    if(gramas && !isNaN(gramas)) {
+        const valor = (parseFloat(gramas) / 1000) * precoKg;
+        carrinho.push({ id: Date.now(), nome: `🥗 KG (${gramas}g)`, preco: valor });
+        atualizarCarrinho();
+    }
+}
+
+function removerItem(id) {
+    carrinho = carrinho.filter(i => i.id !== id);
+    atualizarCarrinho();
+}
+
+function atualizarCarrinho() {
+    const lista = document.getElementById('lista-itens');
+    let total = 0;
+    lista.innerHTML = '';
+    carrinho.forEach(item => {
+        total += item.preco;
+        lista.innerHTML += `<li>${item.nome} <span>R$ ${item.preco.toFixed(2)} <button class="btn-del" onclick="removerItem(${item.id})">&times;</button></span></li>`;
+    });
+    document.getElementById('valor-total').innerText = `R$ ${total.toFixed(2)}`;
+    calcTroco();
+}
+
+function limparCarrinho() {
+    if(confirm("Limpar pedido atual?")) {
+        carrinho = [];
+        atualizarCarrinho();
+    }
+}
+
+// --- FINANCEIRO ---
+function toggleDinheiro() {
+    const met = document.getElementById('select-pagamento').value;
+    document.getElementById('box-dinheiro').className = met === 'Dinheiro' ? '' : 'hidden';
+}
+
+function calcTroco() {
+    const total = parseFloat(document.getElementById('valor-total').innerText.replace('R$ ', ''));
+    const rec = parseFloat(document.getElementById('input-recebido').value) || 0;
+    const troco = Math.max(0, rec - total);
+    document.getElementById('span-troco').innerText = `R$ ${troco.toFixed(2)}`;
+}
+
+function finalizarVenda() {
+    if(carrinho.length === 0) return alert("Carrinho vazio!");
+    const total = parseFloat(document.getElementById('valor-total').innerText.replace('R$ ', ''));
+    const met = document.getElementById('select-pagamento').value;
+    const rec = parseFloat(document.getElementById('input-recebido').value) || total;
+
+    if(met === 'Dinheiro' && rec < total) return alert("Valor recebido insuficiente!");
+
+    const venda = {
+        data: new Date().toLocaleDateString(),
+        hora: new Date().toLocaleTimeString(),
+        itens: carrinho.map(i => i.nome).join(' | '),
+        total: total,
+        metodo: met
+    };
+
+    vendas.push(venda);
+    localStorage.setItem(DB_CHAVES.VENDAS, JSON.stringify(vendas));
+
+    // Cupom
+    const cupom = `
+        <center><strong>RESTAURANTE E LANCHONETE</strong><br>${venda.data} ${venda.hora}</center><hr>
+        ${carrinho.map(i => `<div>${i.nome.padEnd(15)} R$ ${i.preco.toFixed(2)}</div>`).join('')}
+        <hr><strong>TOTAL: R$ ${total.toFixed(2)}</strong><br>PAGTO: ${met}<br>
+        ${met === 'Dinheiro' ? `RECEBIDO: R$ ${rec.toFixed(2)}<br>TROCO: R$ ${(rec-total).toFixed(2)}` : ''}
+        <hr><center>Obrigado e Volte Sempre!</center>
+    `;
+    document.getElementById('cupom-fiscal').innerHTML = cupom;
+    window.print();
+
+    carrinho = [];
+    document.getElementById('input-recebido').value = '';
+    atualizarCarrinho();
+}
+
+// --- GERÊNCIA ---
+function abrirGerente() {
+    if(prompt("Senha do Gerente:") === senhaGerente) {
+        document.getElementById('modal-gerente').style.display = 'block';
+        renderizarTabelaVendas();
+        renderizarTabelaProdutos();
+    } else {
+        alert("Senha incorreta!");
+    }
+}
+
+function fecharGerente() { document.getElementById('modal-gerente').style.display = 'none'; }
+
+function switchTab(tabId) {
+    document.querySelectorAll('.section-gerente, .tab-btn').forEach(el => el.classList.remove('active'));
+    document.getElementById(tabId).classList.add('active');
+    event.currentTarget.classList.add('active');
+}
+
+function renderizarTabelaVendas() {
+    const corpo = document.querySelector('#tabela-vendas tbody');
+    corpo.innerHTML = '';
+    let faturamento = 0;
+    vendas.forEach(v => {
+        faturamento += v.total;
+        corpo.innerHTML += `<tr><td>${v.hora}</td><td>${v.itens.substring(0,25)}...</td><td>${v.metodo}</td><td>R$ ${v.total.toFixed(2)}</td></tr>`;
+    });
+    document.getElementById('total-vendas-valor').innerText = `R$ ${faturamento.toFixed(2)}`;
+}
+
+function renderizarTabelaProdutos() {
+    const corpo = document.querySelector('#tabela-cad-produtos tbody');
+    corpo.innerHTML = '';
+    produtos.forEach(p => {
+        corpo.innerHTML += `<tr><td>${p.nome}</td><td>R$ ${p.preco.toFixed(2)}</td><td><button onclick="excluirProduto(${p.id})">❌</button></td></tr>`;
+    });
+}
+
+function alterarSenha() {
+    const nova = document.getElementById('nova-senha').value;
+    if(nova.length < 4) return alert("A senha deve ter pelo menos 4 caracteres.");
+    senhaGerente = nova;
+    localStorage.setItem(DB_CHAVES.SENHA, nova);
+    alert("Senha alterada com sucesso!");
+}
+
+function limparVendas() {
+    if(confirm("Isso apagará todas as vendas do banco de dados. Confirma?")) {
+        vendas = [];
+        localStorage.setItem(DB_CHAVES.VENDAS, JSON.stringify(vendas));
+        renderizarTabelaVendas();
+    }
+}
+
+function exportarCSV() {
+    let csv = "Data;Hora;Itens;Metodo;Total\n";
+    vendas.forEach(v => csv += `${v.data};${v.hora};${v.itens};${v.metodo};${v.total.toFixed(2)}\n`);
+    const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `vendas_restaurante.csv`;
+    link.click();
+}
+
+init();
+</script>
+
+</body>
+</html>
